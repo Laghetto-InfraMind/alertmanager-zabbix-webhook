@@ -1,24 +1,16 @@
-# Build
-FROM golang:1 as build
+# Build: Go atual, binario estatico.
+FROM golang:1.27.3-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOFLAGS=-buildvcs=false GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/alertmanager-zabbix-webhook .
 
-WORKDIR /go/src/github.com/gmauleon/alertmanager-zabbix-webhook
-ADD . .
-
-RUN go get -d -v ./...
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o alertmanager-zabbix-webhook .
-
-# Run
-FROM alpine:latest
-
-RUN adduser webhook -s /bin/false -D webhook
-
-RUN mkdir -p /etc/webhook
-COPY config.yaml /etc/webhook
-
-COPY --from=build /go/src/github.com/gmauleon/alertmanager-zabbix-webhook/alertmanager-zabbix-webhook /usr/bin
-
+# Run: distroless static, sem shell nem gerenciador de pacotes, nao-root.
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/alertmanager-zabbix-webhook /usr/bin/alertmanager-zabbix-webhook
+COPY config.yaml /etc/webhook/config.yaml
 EXPOSE 8080
-USER webhook
-
+USER nonroot:nonroot
 ENTRYPOINT ["/usr/bin/alertmanager-zabbix-webhook"]
 CMD ["-config", "/etc/webhook/config.yaml"]
