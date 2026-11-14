@@ -3,7 +3,7 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,7 +62,7 @@ func New(cfg *WebHookConfig) *WebHook {
 
 func ConfigFromFile(filename string) (cfg *WebHookConfig, err error) {
 	log.Infof("Loading configuration at '%s'", filename)
-	configFile, err := ioutil.ReadFile(filename)
+	configFile, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("can't open the config file: %s", err)
 	}
@@ -94,8 +94,16 @@ func (hook *WebHook) Start() error {
 
 	// Launch the listening thread
 	log.Println("Initializing HTTP server")
-	http.HandleFunc("/alerts", hook.alertsHandler)
-	err := http.ListenAndServe(":"+strconv.Itoa(hook.config.Port), nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/alerts", hook.alertsHandler)
+	srv := &http.Server{
+		Addr:              ":" + strconv.Itoa(hook.config.Port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+	}
+	err := srv.ListenAndServe()
 	if err != nil {
 		return fmt.Errorf("can't start the listening thread: %s", err)
 	}

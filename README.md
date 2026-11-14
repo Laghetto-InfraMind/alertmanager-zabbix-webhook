@@ -1,11 +1,22 @@
-[![Build Status](https://travis-ci.org/gmauleon/alertmanager-zabbix-webhook.svg?branch=master)](https://travis-ci.org/gmauleon/alertmanager-zabbix-webhook)
+# alertmanager-zabbix-webhook (fork Laghetto)
 
-## alertmanager-zabbix-webhook
+Fork de [gmauleon/alertmanager-zabbix-webhook](https://github.com/gmauleon/alertmanager-zabbix-webhook),
+sem atualizacao desde 2019. Mantido aqui porque a ponte Alertmanager -> Zabbix (trapper) da stack de
+observabilidade depende dele, e a imagem original acumulava CVEs da base Alpine/OpenSSL de 2019.
 
-Webhook that sends alerts to a Zabbix server via trapper items.  
-You can create your Zabbix Hosts/Items/Triggers yourself or you can use https://github.com/gmauleon/alertmanager-zabbix-provisioner
+**Comportamento identico ao original** (conferido em 14/11/2026: mesmo pacote `ZBXD` para os mesmos
+alertas). O que mudou:
 
-## Howto
+- `go.mod` com dependencias atuais (o original nem usava modulos);
+- `os.ReadFile` no lugar de `ioutil`; servidor HTTP com timeouts;
+- imagem final `distroless/static-debian12:nonroot` (sem shell, sem gerenciador de pacotes, nao-root);
+- CI: build, Trivy (falha em CRITICAL/HIGH com correcao), push no GHCR por tag `vX.Y.Z`, rescan semanal;
+- Dependabot para Go, Docker e Actions.
 
-Have a look at the default [config.yaml](https://github.com/gmauleon/alertmanager-zabbix-webhook/blob/master/config.yaml) for the possible parameters  
-Kubernetes deployment manifests are in contrib/kubernetes
+Imagem: `ghcr.io/laghetto-inframind/alertmanager-zabbix-webhook:<versao>`. Licenca: GPL-3.0 (original).
+
+## Uso
+
+Recebe o webhook do Alertmanager em `:8080/alerts` e envia cada alerta ao Zabbix via trapper:
+host = anotacao `zabbix_host` (ou `zabbixHostDefault`), key = `<zabbixKeyPrefix>.<alertname minusculo>`,
+valor `1` (firing) / `0` (resolved). Configuracao: ver `config.yaml`.
